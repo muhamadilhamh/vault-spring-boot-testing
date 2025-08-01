@@ -37,7 +37,7 @@ pipeline {
             steps {
                 script {
                     // Menggunakan kredensial Docker Hub yang disimpan di Jenkins
-                    withCredentials([usernamePassword(credentialsId: 'royalnavy/32dbb5a3A', passwordVariable: '32dbb5a3A' usernameVariable: 'royalnavy')]) {
+                    withCredentials([usernamePassword(credentialsId: 'royalnavy/32dbb5a3A', passwordVariable: '32dbb5a3A', usernameVariable: 'royalnavy')]) {
                         // Perintah docker login menggunakan variabel dari kredensial
                         sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
                         // Kemudian push image
