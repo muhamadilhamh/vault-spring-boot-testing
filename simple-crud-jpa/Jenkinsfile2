@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/muhamadilhamh/vault-spring-boot-testing'
+            }
+        }
+        stage('build & package') {
+            steps {
+                dir('simple-crud-jpa'){
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: "simple-crud-jpa/target/*.jar", fingerprint: true
+                }
+            }
+        }
+        stage('build docker image'){
+            steps {
+                dir('simple-crud-jpa'){
+                    sh 'docker build -t royalnavy/vault-spring-boot-simple-crud-jpa:latest .'
+                }
+            }
+        }
+        stage('push docker image'){
+            steps {
+                sh '''
+                docker push royalnavy/vault-spring-boot-simple-crud-jpa:latest
+                docker logout
+                '''
+            }
+        }
+        stage('deploy via ansible'){
+            steps {
+                echo 'Deploying application on target server via ansible...'
+                sh '''
+                ansible-playbook -i /home/jenkins/ansible/inventories/inventory.ini /home/jenkins/ansible/playbooks/deploy-simple-crud-jpa.yaml \
+                --extra-vars "image=royalnavy/vault-spring-boot-simple-crud-jpa:latest"
+                '''
+            }
+        }
+    }
+    post {
+        success {
+            echo 'Application deployed successfully'
+        }
+        failure {
+            echo 'Application deploy failed'
+        }
+    }
+}
