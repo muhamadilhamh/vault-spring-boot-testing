@@ -6,6 +6,7 @@ pipeline {
         PROJECT_DIR = "simple-crud-jpa"
         DOCKER_USERNAME = "royalnavy"
         DOCKER_PASSWORD = "32dbb5a3A" // Replace with your actual Docker password or use Jenkins credentials
+        ANSIBLE_DIR = "/home/jenkins/ansible"
     }
     
     stages {
@@ -52,11 +53,11 @@ pipeline {
             steps {
                 echo 'Deploying application on target server via ansible...'
                 dir('ansible') {
-                sh '''
-                ansible-playbook -i /home/jenkins/ansible/inventories/inventory.ini /home/jenkins/ansible/playbooks/deploy-simple-crud-jpa.yaml \
-                --extra-vars "image=${DOCKER_IMAGE}"
-                '''
-                  }
+                    sh '''
+                    ansible-playbook -i ${ANSIBLE_DIR}/inventories/inventory.ini ${ANSIBLE_DIR}/playbooks/deploy-simple-crud-jpa.yml \
+                    --extra-vars "image=${DOCKER_IMAGE}"
+                    '''
+                }
             }
         }
     }
