@@ -4,6 +4,8 @@ pipeline {
     environment {
         DOCKER_IMAGE = "royalnavy/vault-spring-boot-simple-crud-jpa:latest"
         PROJECT_DIR = "simple-crud-jpa"
+        DOCKER_USERNAME = "royalnavy"
+        DOCKER_PASSWORD = "32dbb5a3A" // Replace with your actual Docker password or use Jenkins credentials
     }
     
     stages {
@@ -33,10 +35,17 @@ pipeline {
         }
         stage('push docker image'){
             steps {
-                sh '''
-                docker push ${DOCKER_IMAGE}
-                docker logout
-                '''
+                script {
+                    // Menggunakan kredensial Docker Hub yang disimpan di Jenkins
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        // Perintah docker login menggunakan variabel dari kredensial
+                        sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+                        // Kemudian push image
+                        sh "docker push ${DOCKER_IMAGE}"
+                        // Opsional: Logout setelah push selesai untuk keamanan
+                        sh "docker logout"
+                    }
+                }
             }
         }
         stage('deploy via ansible'){
