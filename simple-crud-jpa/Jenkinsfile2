@@ -1,55 +1,89 @@
 pipeline {
     agent any
-    
+
+    environment {
+        MAVEN_HOME = tool 'Maven-3.9.11'   // Ensure this tool name matches Jenkins config
+        JAVA_HOME = tool 'JDK-21'          // Match your configured JDK
+        PATH = "${JAVA_HOME}/bin:${MAVEN_HOME}/bin:${env.PATH}"
+        DOCKER_IMAGE = "thechief28/vault-spring-boot-simple-crud-jpa:${env.BUILD_NUMBER}"
+        DOCKER_LATEST_IMAGE = "thechief28/vault-spring-boot-simple-crud-jpa:latest"
+        PROJECT_DIR = "simple-crud-jpa"
+        ANSIBLE_DIR = "/home/jenkins/ansible"
+        ANSIBLE_CONFIG = "/home/jenkins/ansible/ansible.cfg"
+    }
+
     stages {
-        stage('checkout') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/muhamadilhamh/vault-spring-boot-testing'
+                git branch: 'main', url: 'https://github.com/anandakevin/vault-spring-boot.git'
             }
         }
-        stage('build & package') {
+
+        stage('Build') {
             steps {
-                dir('simple-crud-jpa'){
-                    sh 'mvn clean package -DskipTests'
+                dir("${PROJECT_DIR}") {
+                    sh 'mvn clean compile'
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir("${PROJECT_DIR}") {
+                    sh 'mvn package -DskipTests'
                 }
             }
             post {
                 success {
-                    archiveArtifacts artifacts: "simple-crud-jpa/target/*.jar", fingerprint: true
+                    archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
                 }
             }
         }
-        stage('build docker image'){
+
+        stage('Build Docker Image') {
             steps {
-                dir('simple-crud-jpa'){
-                    sh 'docker build -t royalnavy/vault-spring-boot-simple-crud-jpa:latest .'
+                script {
+                    dir("${PROJECT_DIR}") {
+                        sh "docker build -t ${DOCKER_IMAGE} ."
+                    }
                 }
             }
         }
-        stage('push docker image'){
+
+        stage('Push Docker Image') {
             steps {
-                sh '''
-                docker push royalnavy/vault-spring-boot-simple-crud-jpa:latest
-                docker logout
-                '''
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag ${DOCKER_IMAGE} \
+                           ${DOCKER_LATEST_IMAGE}
+                        docker push ${DOCKER_IMAGE}
+                        docker push ${DOCKER_LATEST_IMAGE}
+                        docker logout
+                    '''
+                }
             }
         }
-        stage('deploy via ansible'){
+
+        stage('Deploy via Ansible') {
             steps {
-                echo 'Deploying application on target server via ansible...'
-                sh '''
-                ansible-playbook -i /home/jenkins/ansible/inventories/inventory.ini /home/jenkins/ansible/playbooks/deploy-simple-crud-jpa.yaml \
-                --extra-vars "image=royalnavy/vault-spring-boot-simple-crud-jpa:latest"
-                '''
+                echo 'Deploying application on target server via Ansible...'
+                dir('ansible') {
+                    sh '''
+                        ansible-playbook -i ${ANSIBLE_DIR}/inventories/inventory.ini ${ANSIBLE_DIR}/playbooks/deploy-simple-crud-jpa.yml \
+                        --extra-vars "image=${DOCKER_LATEST_IMAGE}"
+                    '''
+                }
             }
         }
     }
+
     post {
         success {
-            echo 'Application deployed successfully'
+            echo 'Application deployed successfully! ✅'
         }
         failure {
-            echo 'Application deploy failed'
+            echo 'Deployment failed. Please check the logs. ❌'
         }
     }
 }
