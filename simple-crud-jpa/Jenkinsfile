@@ -51,10 +51,12 @@ pipeline {
         stage('deploy via ansible'){
             steps {
                 echo 'Deploying application on target server via ansible...'
+                dir('ansible') {
                 sh '''
                 ansible-playbook -i /home/jenkins/ansible/inventories/inventory.ini /home/jenkins/ansible/playbooks/deploy-simple-crud-jpa.yaml \
                 --extra-vars "image=${DOCKER_IMAGE}"
                 '''
+                  }
             }
         }
     }
